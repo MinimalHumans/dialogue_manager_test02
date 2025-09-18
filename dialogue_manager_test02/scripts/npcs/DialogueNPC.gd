@@ -427,13 +427,18 @@ func get_debug_info() -> String:
 	info += "Compatibility: %.2f (%s)\n" % [current_compatibility, SocialDNAManager.get_compatibility_description(current_compatibility)]
 	info += "Trust Level: %.2f (%s)\n" % [current_trust_level, get_trust_name(current_trust_level)]
 	
-	# Show relationship summary
+	# Show relationship summary with error checking
 	if conversation_controller:
 		var summary = conversation_controller.get_relationship_summary(self)
-		info += "\nRelationship Summary:\n"
-		info += "  Total Interactions: %d\n" % summary.total_interactions
-		info += "  Success Rate: %.1f%%\n" % summary.success_rate
-		info += "  Last Outcome: %s\n" % summary.get("last_outcome", "None")
+		if summary and summary.size() > 0:
+			info += "\nRelationship Summary:\n"
+			info += "  Total Interactions: %d\n" % summary.get("total_interactions", 0)
+			info += "  Success Rate: %.1f%%\n" % summary.get("success_rate", 0.0)
+			info += "  Last Outcome: %s\n" % summary.get("last_outcome", "None")
+		else:
+			info += "\nRelationship Summary: No data yet\n"
+	else:
+		info += "\nRelationship Summary: No conversation controller\n"
 	
 	# Show archetype preferences
 	info += "\nArchetype Preferences:\n"
@@ -444,18 +449,22 @@ func get_debug_info() -> String:
 		var pref_desc = get_preference_description(pref_value)
 		info += "  %s: %+.1f (%s)\n" % [type_name, pref_value, pref_desc]
 	
-	# Show conversation availability
+	# Show conversation availability with error checking
 	info += "\nConversation Availability:\n"
 	if conversation_controller:
 		for conv_type in ConversationController.ConversationType.values():
 			var availability = conversation_controller.can_start_conversation(self, conv_type)
 			var type_name = get_conversation_type_name(conv_type)
-			if availability.can_start:
+			if availability and availability.get("can_start", false):
 				info += "  ✓ %s: Available\n" % type_name
 			else:
-				info += "  🔒 %s: Need %s Trust (Have: %s)\n" % [type_name, availability.required_trust_name, availability.current_trust_name]
+				var required_trust = availability.get("required_trust_name", "Unknown") if availability else "Unknown"
+				var current_trust = availability.get("current_trust_name", "Unknown") if availability else "Unknown"
+				info += "  🔒 %s: Need %s Trust (Have: %s)\n" % [type_name, required_trust, current_trust]
+	else:
+		info += "  No conversation controller available\n"
 	
-	info += "\nControls: Click (Quick) | Ctrl+Click (Topic) | Shift+Click (Deep)"
+	info += "\nControls: Left-click (Menu) | Right-click (Debug)"
 	
 	return info
 
