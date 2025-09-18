@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3 uid="uid://c5t77t12fbpwh"]
+
+[ext_resource type="Script" uid="uid://ct82dyvwpqaax" path="res://scripts/npcs/DialogueNPC.gd" id="1_lkggk"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_gdb0e"]
+size = Vector2(40, 60)
+
+[node name="NPCTest" type="Area2D"]
+script = ExtResource("1_lkggk")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_gdb0e")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+
+[node name="Label" type="Label" parent="."]
+offset_right = 40.0
+offset_bottom = 23.0
