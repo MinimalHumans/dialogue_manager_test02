@@ -52,23 +52,23 @@ func setup_visuals():
 		sprite = Sprite2D.new()
 		add_child(sprite)
 	
-	# Create main info label
+	# Create main info label with better positioning
 	if not label:
 		label = Label.new()
-		label.position = Vector2(-70, -120)
-		label.size = Vector2(140, 100)
+		label.position = Vector2(-80, -140)
+		label.size = Vector2(160, 60)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		label.add_theme_font_size_override("font_size", 9)
+		label.add_theme_font_size_override("font_size", 11)
 		label.autowrap_mode = TextServer.AUTOWRAP_WORD
 		add_child(label)
 	
-	# Create trust indicator label
+	# Create trust indicator label with better spacing
 	if not trust_indicator:
 		trust_indicator = Label.new()
-		trust_indicator.position = Vector2(-50, -20)
-		trust_indicator.size = Vector2(100, 20)
+		trust_indicator.position = Vector2(-60, -80)
+		trust_indicator.size = Vector2(120, 20)
 		trust_indicator.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		trust_indicator.add_theme_font_size_override("font_size", 8)
+		trust_indicator.add_theme_font_size_override("font_size", 9)
 		add_child(trust_indicator)
 	
 	# Set archetype-based appearance
@@ -109,20 +109,16 @@ func update_display():
 	var trust_name = get_trust_name(current_trust_level)
 	var trust_color = get_trust_color(current_trust_level)
 	
-	# Get conversation availability
-	var available_conversations = get_conversation_availability_display()
-	
-	# Main label with NPC info
-	label.text = "%s\n[%s]\nCompatibility: %.2f\n%s\n\n%s" % [
+	# Simplified main label - no conversation info here
+	label.text = "%s\n[%s]\nCompatibility: %.1f\n%s" % [
 		npc_name,
 		SocialDNAManager.get_archetype_name(archetype).to_upper(),
 		current_compatibility,
-		compat_desc,
-		available_conversations
+		compat_desc
 	]
 	
-	# Trust indicator
-	trust_indicator.text = "Trust: %s (%.1f)" % [trust_name, current_trust_level]
+	# Trust indicator shows level and simple instruction
+	trust_indicator.text = "Trust: %s (%.1f)\n[CLICK FOR OPTIONS]" % [trust_name, current_trust_level]
 	trust_indicator.modulate = trust_color
 	
 	# Visual feedback through sprite modulation
@@ -197,22 +193,78 @@ func get_conversation_availability_display() -> String:
 	return display_text
 
 # =============================================================================
-# ENHANCED INTERACTION HANDLING
+# ENHANCED INTERACTION HANDLING WITH DROPDOWN MENU
 # =============================================================================
 
 func _on_input_event(_viewport, event, _shape_idx):
 	if event is InputEventMouseButton and event.pressed:
-		match event.button_index:
-			MOUSE_BUTTON_LEFT:
-				# Try different conversation types based on modifiers
-				if Input.is_action_pressed("ui_shift"):
-					try_conversation(ConversationController.ConversationType.DEEP_CONVERSATION)
-				elif Input.is_action_pressed("ui_ctrl"):
-					try_conversation(ConversationController.ConversationType.TOPIC_DISCUSSION)
-				else:
-					try_conversation(ConversationController.ConversationType.QUICK_CHAT)
-			MOUSE_BUTTON_RIGHT:
-				show_conversation_menu()
+		if event.button_index == MOUSE_BUTTON_LEFT:
+			show_conversation_menu()
+		elif event.button_index == MOUSE_BUTTON_RIGHT:
+			print(get_debug_info())
+
+func show_conversation_menu():
+	print("[NPC] %s: Opening conversation selection menu" % npc_name)
+	
+	# Create popup menu
+	var popup = PopupMenu.new()
+	popup.size = Vector2(250, 120)
+	popup.position = global_position + Vector2(70, -60)
+	
+	# Get available conversation types
+	var available_types = []
+	var blocked_types = []
+	
+	if conversation_controller:
+		for conv_type in ConversationController.ConversationType.values():
+			var availability = conversation_controller.can_start_conversation(self, conv_type)
+			if availability.can_start:
+				available_types.append(conv_type)
+			else:
+				blocked_types.append([conv_type, availability])
+	
+	# Add available conversations
+	for conv_type in available_types:
+		var type_name = get_conversation_type_name(conv_type)
+		var description = get_conversation_description(conv_type)
+		var menu_text = "%s - %s" % [type_name, description]
+		
+		popup.add_item(menu_text)
+		popup.set_item_metadata(popup.get_item_count() - 1, conv_type)
+	
+	# Add separator if we have both available and blocked
+	if available_types.size() > 0 and blocked_types.size() > 0:
+		popup.add_separator()
+	
+	# Add blocked conversations (greyed out)
+	for blocked_info in blocked_types:
+		var conv_type = blocked_info[0]
+		var availability = blocked_info[1]
+		var type_name = get_conversation_type_name(conv_type)
+		var required_trust = availability.required_trust_name
+		var menu_text = "🔒 %s (Need: %s Trust)" % [type_name, required_trust]
+		
+		popup.add_item(menu_text)
+		var item_index = popup.get_item_count() - 1
+		popup.set_item_disabled(item_index, true)
+		popup.set_item_metadata(item_index, null)
+	
+	# Connect selection signal
+	popup.id_pressed.connect(_on_conversation_selected)
+	
+	# Add to scene and show
+	get_tree().current_scene.add_child(popup)
+	popup.popup()
+	
+	# Auto-remove after selection or timeout
+	popup.popup_hide.connect(func(): popup.queue_free())
+
+func _on_conversation_selected(id: int):
+	var popup = get_tree().current_scene.get_children().filter(func(child): return child is PopupMenu).back()
+	if popup:
+		var conv_type = popup.get_item_metadata(id)
+		if conv_type != null:
+			start_conversation(conv_type)
 
 func try_conversation(conversation_type: ConversationController.ConversationType):
 	print("[NPC] %s: Attempting %s conversation" % [npc_name, get_conversation_type_name(conversation_type)])
@@ -245,14 +297,11 @@ func handle_trust_gate(availability: Dictionary):
 func show_trust_gate_feedback(availability: Dictionary):
 	# Create temporary feedback label
 	var feedback = Label.new()
-	feedback.text = "Need %s Trust!\nTry: %s" % [
-		availability.required_trust_name,
-		get_trust_building_tip()
-	]
+	feedback.text = "Need %s Trust!" % availability.required_trust_name
 	feedback.position = Vector2(-60, 20)
-	feedback.size = Vector2(120, 40)
+	feedback.size = Vector2(120, 30)
 	feedback.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	feedback.add_theme_font_size_override("font_size", 8)
+	feedback.add_theme_font_size_override("font_size", 10)
 	feedback.modulate = Color.ORANGE
 	add_child(feedback)
 	
@@ -268,38 +317,7 @@ func get_trust_building_tip() -> String:
 	else:
 		return "Topic Discussions"
 
-func show_conversation_menu():
-	print("[NPC] %s: Conversation Menu:" % npc_name)
-	
-	if not conversation_controller:
-		print("  [ERROR] No conversation controller found")
-		return
-	
-	# Show available conversations
-	var available = conversation_controller.get_available_conversation_types(self)
-	
-	print("  === AVAILABLE CONVERSATIONS ===")
-	for conv_type in available:
-		var type_name = get_conversation_type_name(conv_type)
-		var description = get_conversation_description(conv_type)
-		print("  ✓ %s: %s" % [type_name, description])
-	
-	# Show blocked conversations
-	print("  === LOCKED CONVERSATIONS ===")
-	for conv_type in ConversationController.ConversationType.values():
-		if conv_type not in available:
-			var availability = conversation_controller.can_start_conversation(self, conv_type)
-			var type_name = get_conversation_type_name(conv_type)
-			var description = get_conversation_description(conv_type)
-			print("  🔒 %s: %s [Need: %s Trust]" % [type_name, description, availability.required_trust_name])
-	
-	print("  === CONTROLS ===")
-	print("  Left Click: Quick Chat")
-	print("  Ctrl+Click: Topic Discussion") 
-	print("  Shift+Click: Deep Conversation")
-	
-	# For now, start a topic conversation as default right-click action
-	try_conversation(ConversationController.ConversationType.TOPIC_DISCUSSION)
+# Removed old show_conversation_menu() method - replaced with dropdown
 
 func start_conversation(conversation_type: ConversationController.ConversationType = ConversationController.ConversationType.QUICK_CHAT):
 	print("[NPC] %s: Starting %s conversation" % [npc_name, get_conversation_type_name(conversation_type)])
