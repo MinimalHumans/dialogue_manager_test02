@@ -1,11 +1,150 @@
 # =============================================================================
-# ENHANCED CONVERSATION DATA - Phase 2B
+# ENHANCED CONVERSATION DATA - Phase 2C: Goal-Driven Information System
 # File: scripts/core/ConversationData.gd (REPLACE existing file)
-# Adds trust-aware reactions and trust-gated conversation content
+# Adds meaningful objectives, information rewards, and NPC-specific knowledge assets
 # =============================================================================
 
 extends Node
 class_name ConversationData
+
+# =============================================================================
+# NPC INFORMATION ASSETS SYSTEM
+# =============================================================================
+
+const NPC_INFORMATION_ASSETS = {
+	"Captain Stone": {
+		"facility_layout": {
+			"trust_required": 0.0,
+			"compatibility_bonus": 0.0,
+			"info_type": "location",
+			"title": "Basic Facility Layout",
+			"description": "General building layout and public areas",
+			"value": "basic_facility_map"
+		},
+		"patrol_schedules": {
+			"trust_required": 1.0,
+			"compatibility_bonus": 0.3,
+			"info_type": "security",
+			"title": "Guard Patrol Schedules",
+			"description": "Security rotation times and patrol routes",
+			"value": "guard_patrol_data"
+		},
+		"security_codes": {
+			"trust_required": 2.0,
+			"compatibility_bonus": 0.5,
+			"info_type": "access",
+			"title": "Research Lab Access Code",
+			"description": "Alpha-level security clearance codes",
+			"value": "research_lab_code_alpha77delta"
+		},
+		"weapon_cache": {
+			"trust_required": 2.5,
+			"compatibility_bonus": 0.8,
+			"info_type": "location",
+			"title": "Emergency Armory Location", 
+			"description": "Hidden weapons cache in sub-basement",
+			"value": "armory_sublevel_b3"
+		},
+		"personnel_files": {
+			"trust_required": 1.5,
+			"compatibility_bonus": 0.2,
+			"info_type": "intelligence",
+			"title": "Personnel Background Files",
+			"description": "Confidential staff records and clearance levels",
+			"value": "staff_security_profiles"
+		}
+	},
+	"Dr. Wisdom": {
+		"research_summary": {
+			"trust_required": 0.0,
+			"compatibility_bonus": 0.0,
+			"info_type": "knowledge",
+			"title": "Published Research Summary",
+			"description": "Overview of current public research projects",
+			"value": "public_research_data"
+		},
+		"lab_access": {
+			"trust_required": 1.0,
+			"compatibility_bonus": 0.4,
+			"info_type": "access",
+			"title": "Laboratory Access Codes",
+			"description": "Entry codes for research laboratory",
+			"value": "lab_access_beta44gamma"
+		},
+		"classified_projects": {
+			"trust_required": 2.0,
+			"compatibility_bonus": 0.6,
+			"info_type": "knowledge",
+			"title": "Classified Research Data",
+			"description": "Top-secret experimental data and results",
+			"value": "project_blackbird_data"
+		},
+		"prototype_location": {
+			"trust_required": 2.5,
+			"compatibility_bonus": 0.7,
+			"info_type": "location",
+			"title": "Prototype Storage Location",
+			"description": "Location of experimental technology prototypes",
+			"value": "prototype_vault_sublevel_a2"
+		}
+	},
+	"Commander Steele": {
+		"mission_brief": {
+			"trust_required": 1.0,
+			"compatibility_bonus": 0.3,
+			"info_type": "intelligence",
+			"title": "Current Mission Briefing",
+			"description": "Overview of ongoing military operations",
+			"value": "operation_steel_rain_brief"
+		},
+		"comm_frequencies": {
+			"trust_required": 1.5,
+			"compatibility_bonus": 0.4,
+			"info_type": "access",
+			"title": "Encrypted Communication Codes",
+			"description": "Secure radio frequencies and encryption keys",
+			"value": "tactical_comm_freq_2847"
+		},
+		"supply_caches": {
+			"trust_required": 2.0,
+			"compatibility_bonus": 0.6,
+			"info_type": "location",
+			"title": "Supply Cache Locations",
+			"description": "Hidden resource and equipment stashes",
+			"value": "supply_depot_coordinates"
+		},
+		"transport_schedule": {
+			"trust_required": 1.2,
+			"compatibility_bonus": 0.3,
+			"info_type": "intelligence",
+			"title": "Transport Schedules",
+			"description": "Vehicle and aircraft movement timetables",
+			"value": "transport_logistics_alpha"
+		}
+	}
+}
+
+# Conversation objectives based on information sought
+const CONVERSATION_OBJECTIVES = {
+	"seek_security_access": {
+		"title": "Obtain Security Access",
+		"description": "Get access codes or security information",
+		"target_info_types": ["access", "security"],
+		"difficulty": "medium"
+	},
+	"gather_intelligence": {
+		"title": "Gather Intelligence",
+		"description": "Collect information about people, places, or operations", 
+		"target_info_types": ["intelligence", "location"],
+		"difficulty": "medium"
+	},
+	"acquire_research_data": {
+		"title": "Acquire Research Data",
+		"description": "Obtain scientific or technical information",
+		"target_info_types": ["knowledge", "access"],
+		"difficulty": "hard"
+	}
+}
 
 # =============================================================================
 # ENHANCED CONVERSATION CONTENT GETTER
@@ -14,33 +153,705 @@ class_name ConversationData
 static func get_conversation(archetype: SocialDNAManager.NPCArchetype, 
 							conv_type: ConversationController.ConversationType,
 							trust_level: float, 
-							compatibility: float) -> Dictionary:
+							compatibility: float,
+							npc_name: String = "",
+							objective: String = "") -> Dictionary:
 	
-	# Get base conversation structure
+	# Get base conversation structure with enhanced content
 	var conversation = {}
 	
 	match conv_type:
 		ConversationController.ConversationType.QUICK_CHAT:
-			conversation = get_quick_chat_conversation(archetype, trust_level, compatibility)
+			conversation = get_goal_oriented_quick_chat(archetype, npc_name, trust_level, compatibility)
 		ConversationController.ConversationType.TOPIC_DISCUSSION:
-			conversation = get_topic_conversation(archetype, trust_level, compatibility)
+			conversation = get_goal_oriented_topic_discussion(archetype, npc_name, trust_level, compatibility, objective)
 		ConversationController.ConversationType.DEEP_CONVERSATION:
-			conversation = get_deep_conversation(archetype, trust_level, compatibility)
+			conversation = get_goal_oriented_deep_conversation(archetype, npc_name, trust_level, compatibility, objective)
 		_:
-			conversation = get_quick_chat_conversation(archetype, trust_level, compatibility)
+			conversation = get_goal_oriented_quick_chat(archetype, npc_name, trust_level, compatibility)
 	
 	# Add trust-aware opening lines
-	conversation.opening_lines = get_trust_aware_opening_lines(archetype, trust_level, compatibility)
+	conversation.opening_lines = get_trust_aware_opening_lines(archetype, trust_level, compatibility, npc_name)
+	
+	# Add available information for this NPC
+	conversation.available_information = get_available_information_for_npc(npc_name, trust_level, compatibility)
 	
 	return conversation
 
 # =============================================================================
-# TRUST-AWARE OPENING LINES
+# GOAL-ORIENTED CONVERSATION STRUCTURES
+# =============================================================================
+
+static func get_goal_oriented_quick_chat(archetype: SocialDNAManager.NPCArchetype,
+										npc_name: String,
+										trust_level: float,
+										compatibility: float) -> Dictionary:
+	
+	var conversation = {
+		"type": ConversationController.ConversationType.QUICK_CHAT,
+		"objective": "Build rapport and assess information availability",
+		"turns": []
+	}
+	
+	# Turn 0: Relationship building with information hints
+	var turn_0_options = []
+	
+	match npc_name:
+		"Captain Stone":
+			turn_0_options = [
+				{
+					"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
+					"text": "I need to know who I can count on around here.",
+					"information_hint": "Asserts authority to gauge Stone's respect"
+				},
+				{
+					"social_type": SocialDNAManager.SocialType.DIRECT,
+					"text": "What's the security situation in this facility?",
+					"information_hint": "Direct inquiry about Stone's area of expertise"
+				},
+				{
+					"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+					"text": "I'd appreciate any guidance you could offer.",
+					"information_hint": "Respectful approach that acknowledges Stone's authority"
+				},
+				{
+					"social_type": SocialDNAManager.SocialType.EMPATHETIC,
+					"text": "This job must put a lot of responsibility on your shoulders.",
+					"information_hint": "Shows understanding of Stone's burden"
+				},
+				{
+					"social_type": SocialDNAManager.SocialType.CHARMING,
+					"text": "I've heard you run a tight ship around here.",
+					"information_hint": "Flattery approach - risky with Authority types"
+				}
+			]
+		
+		"Dr. Wisdom":
+			turn_0_options = [
+				{
+					"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+					"text": "Your research reputation precedes you, Doctor.",
+					"information_hint": "Acknowledges intellectual status respectfully"
+				},
+				{
+					"social_type": SocialDNAManager.SocialType.EMPATHETIC,
+					"text": "The complexity of your work must be fascinating.",
+					"information_hint": "Shows genuine interest in their expertise"
+				},
+				{
+					"social_type": SocialDNAManager.SocialType.DIRECT,
+					"text": "What kind of research are you working on?",
+					"information_hint": "Straightforward inquiry about research"
+				},
+				{
+					"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
+					"text": "I need to understand what's happening in your lab.",
+					"information_hint": "Aggressive approach - risky with Intellectual types"
+				},
+				{
+					"social_type": SocialDNAManager.SocialType.CHARMING,
+					"text": "I'd love to learn more about your fascinating work.",
+					"information_hint": "Flattery with intellectual focus"
+				}
+			]
+		
+		_:  # Generic options for other NPCs
+			turn_0_options = [
+				{
+					"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+					"text": "I was hoping we could talk.",
+					"information_hint": "Standard diplomatic opener"
+				},
+				{
+					"social_type": SocialDNAManager.SocialType.DIRECT,
+					"text": "What's your role around here?",
+					"information_hint": "Direct inquiry about their position"
+				}
+			]
+	
+	conversation.turns.append({
+		"turn": 0,
+		"player_options": turn_0_options,
+		"context": "Initial rapport building - hints at information availability"
+	})
+	
+	# Turn 1: Follow-up based on compatibility
+	conversation.turns.append({
+		"turn": 1,
+		"player_options": get_quick_chat_followup_options(npc_name, trust_level),
+		"context": "Gauge willingness to share information in future conversations"
+	})
+	
+	return conversation
+
+static func get_goal_oriented_topic_discussion(archetype: SocialDNAManager.NPCArchetype,
+											  npc_name: String,
+											  trust_level: float,
+											  compatibility: float,
+											  objective: String = "") -> Dictionary:
+	
+	var conversation = {
+		"type": ConversationController.ConversationType.TOPIC_DISCUSSION,
+		"objective": "Request specific information based on relationship level",
+		"turns": []
+	}
+	
+	# Determine available information for this trust level
+	var available_info = get_available_information_for_npc(npc_name, trust_level, compatibility)
+	var primary_target = get_primary_information_target(available_info, trust_level)
+	
+	conversation.primary_information_target = primary_target
+	
+	# Turn 0: Make information request
+	match npc_name:
+		"Captain Stone":
+			conversation.turns.append(get_captain_stone_topic_turns(trust_level, primary_target))
+		"Dr. Wisdom":
+			conversation.turns.append(get_dr_wisdom_topic_turns(trust_level, primary_target))
+		"Commander Steele":
+			conversation.turns.append(get_commander_steele_topic_turns(trust_level, primary_target))
+		_:
+			conversation.turns.append(get_generic_topic_turns(trust_level))
+	
+	return conversation
+
+static func get_goal_oriented_deep_conversation(archetype: SocialDNAManager.NPCArchetype,
+											   npc_name: String,
+											   trust_level: float,
+											   compatibility: float,
+											   objective: String = "") -> Dictionary:
+	
+	var conversation = {
+		"type": ConversationController.ConversationType.DEEP_CONVERSATION,
+		"objective": "Access high-value information through established trust",
+		"turns": []
+	}
+	
+	# Deep conversations focus on the most valuable information
+	var available_info = get_available_information_for_npc(npc_name, trust_level, compatibility)
+	var high_value_targets = get_high_value_information_targets(available_info)
+	
+	conversation.high_value_targets = high_value_targets
+	
+	# Create multi-turn conversation for valuable information
+	match npc_name:
+		"Captain Stone":
+			conversation.turns = get_captain_stone_deep_turns(trust_level, high_value_targets)
+		"Dr. Wisdom":
+			conversation.turns = get_dr_wisdom_deep_turns(trust_level, high_value_targets)
+		"Commander Steele":
+			conversation.turns = get_commander_steele_deep_turns(trust_level, high_value_targets)
+		_:
+			conversation.turns = get_generic_deep_turns(trust_level)
+	
+	return conversation
+
+# =============================================================================
+# CAPTAIN STONE SPECIFIC CONVERSATIONS
+# =============================================================================
+
+static func get_captain_stone_topic_turns(trust_level: float, primary_target: Dictionary) -> Dictionary:
+	var turn = {
+		"turn": 0,
+		"context": "Requesting information from Security Chief",
+		"primary_target": primary_target,
+		"player_options": []
+	}
+	
+	if primary_target.has("patrol_schedules"):
+		turn.player_options = [
+			{
+				"social_type": SocialDNAManager.SocialType.DIRECT,
+				"text": "I need to know the security patrol patterns.",
+				"information_request": "patrol_schedules",
+				"success_chance": 0.8,
+				"risk_level": "medium"
+			},
+			{
+				"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
+				"text": "The security around here is sloppy. Show me the patrol routes.",
+				"information_request": "patrol_schedules",
+				"success_chance": 0.6,
+				"risk_level": "high"
+			},
+			{
+				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+				"text": "For coordination purposes, could you share the patrol schedules?",
+				"information_request": "patrol_schedules",
+				"success_chance": 0.7,
+				"risk_level": "low"
+			}
+		]
+	elif primary_target.has("security_codes"):
+		turn.player_options = [
+			{
+				"social_type": SocialDNAManager.SocialType.DIRECT,
+				"text": "I need access to the research lab. What's the code?",
+				"information_request": "security_codes",
+				"success_chance": 0.7,
+				"risk_level": "high"
+			},
+			{
+				"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
+				"text": "I have clearance for that lab. Give me the access code.",
+				"information_request": "security_codes", 
+				"success_chance": 0.5,
+				"risk_level": "very_high"
+			},
+			{
+				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+				"text": "I'm working with Dr. Wisdom. Could you provide lab access?",
+				"information_request": "security_codes",
+				"success_chance": 0.8,
+				"risk_level": "medium"
+			}
+		]
+	else:
+		# Fallback for basic information
+		turn.player_options = [
+			{
+				"social_type": SocialDNAManager.SocialType.DIRECT,
+				"text": "Can you tell me about this facility's layout?",
+				"information_request": "facility_layout",
+				"success_chance": 0.9,
+				"risk_level": "low"
+			}
+		]
+	
+	return turn
+
+static func get_captain_stone_deep_turns(trust_level: float, high_value_targets: Array) -> Array:
+	var turns = []
+	
+	# Turn 0: High-stakes information request
+	turns.append({
+		"turn": 0,
+		"context": "High-value information request from trusted ally",
+		"player_options": [
+			{
+				"social_type": SocialDNAManager.SocialType.DIRECT,
+				"text": "I need to know about the emergency protocols. Lives might depend on it.",
+				"information_request": "weapon_cache",
+				"success_chance": 0.8,
+				"risk_level": "high"
+			},
+			{
+				"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
+				"text": "The situation is critical. I need access to emergency resources.",
+				"information_request": "weapon_cache",
+				"success_chance": 0.7,
+				"risk_level": "very_high"
+			},
+			{
+				"social_type": SocialDNAManager.SocialType.EMPATHETIC,
+				"text": "I know you're concerned about security. Help me help everyone.",
+				"information_request": "weapon_cache",
+				"success_chance": 0.6,
+				"risk_level": "medium"
+			}
+		]
+	})
+	
+	# Turn 1: Follow-through based on response
+	turns.append({
+		"turn": 1,
+		"context": "Reinforcing the request or changing approach",
+		"player_options": [
+			{
+				"social_type": SocialDNAManager.SocialType.DIRECT,
+				"text": "I understand the risks. I won't abuse this information.",
+				"information_request": "confirmation",
+				"success_chance": 0.9,
+				"risk_level": "low"
+			},
+			{
+				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+				"text": "Perhaps there's another way I can prove my reliability?",
+				"information_request": "alternative",
+				"success_chance": 0.7,
+				"risk_level": "low"
+			}
+		]
+	})
+	
+	return turns
+
+# =============================================================================
+# INFORMATION AVAILABILITY SYSTEM
+# =============================================================================
+
+static func get_available_information_for_npc(npc_name: String, trust_level: float, compatibility: float) -> Dictionary:
+	if not NPC_INFORMATION_ASSETS.has(npc_name):
+		return {}
+	
+	var npc_assets = NPC_INFORMATION_ASSETS[npc_name]
+	var available = {}
+	
+	for info_key in npc_assets:
+		var info_asset = npc_assets[info_key]
+		var required_trust = info_asset.trust_required
+		var compatibility_bonus = info_asset.get("compatibility_bonus", 0.0)
+		
+		# Check if information is available based on trust + compatibility bonus
+		var effective_trust = trust_level + (compatibility * compatibility_bonus)
+		
+		if effective_trust >= required_trust:
+			# Create a new dictionary instead of referencing the read-only constant
+			available[info_key] = {
+				"trust_required": info_asset.trust_required,
+				"compatibility_bonus": info_asset.get("compatibility_bonus", 0.0),
+				"info_type": info_asset.info_type,
+				"title": info_asset.title,
+				"description": info_asset.description,
+				"value": info_asset.value,
+				"effective_trust": effective_trust,
+				"unlock_margin": effective_trust - required_trust
+			}
+	
+	return available
+
+static func get_primary_information_target(available_info: Dictionary, trust_level: float) -> Dictionary:
+	# Find the highest-value information that's just within reach
+	var best_target = {}
+	var highest_value = -1.0
+	
+	for info_key in available_info:
+		var info = available_info[info_key]
+		var value_score = info.trust_required + info.get("compatibility_bonus", 0.0)
+		
+		if value_score > highest_value:
+			highest_value = value_score
+			best_target[info_key] = info
+	
+	return best_target
+
+static func get_high_value_information_targets(available_info: Dictionary) -> Array:
+	var high_value = []
+	
+	for info_key in available_info:
+		var info = available_info[info_key]
+		if info.trust_required >= 2.0:  # High-trust information
+			high_value.append({info_key: info})
+	
+	return high_value
+
+# =============================================================================
+# NPC-SPECIFIC RESPONSE CONTENT
+# =============================================================================
+
+static func get_trust_aware_reaction_text(archetype: SocialDNAManager.NPCArchetype,
+										 social_choice: SocialDNAManager.SocialType,
+										 compatibility_result: String,
+										 trust_level: float,
+										 turn: int,
+										 npc_name: String = "",
+										 information_context: Dictionary = {}) -> String:
+	
+	# Enhanced reactions that consider information requests
+	match npc_name:
+		"Captain Stone":
+			return get_captain_stone_information_reaction(social_choice, compatibility_result, trust_level, information_context)
+		"Dr. Wisdom":
+			return get_dr_wisdom_information_reaction(social_choice, compatibility_result, trust_level, information_context)
+		"Commander Steele":
+			return get_commander_steele_information_reaction(social_choice, compatibility_result, trust_level, information_context)
+		_:
+			# Fall back to original system
+			return get_original_trust_aware_reaction_text(archetype, social_choice, compatibility_result, trust_level, turn)
+
+static func get_captain_stone_information_reaction(social_choice: SocialDNAManager.SocialType,
+												  compatibility_result: String,
+												  trust_level: float,
+												  info_context: Dictionary) -> String:
+	
+	var information_request = info_context.get("information_request", "")
+	var success_chance = info_context.get("success_chance", 0.5)
+	
+	# Information-specific reactions
+	match information_request:
+		"security_codes":
+			match compatibility_result:
+				"VERY_COMPATIBLE", "COMPATIBLE":
+					if trust_level >= 2.0:
+						return "Alpha-7-7-Delta. That code gets you into the research lab. Don't make me regret this."
+					else:
+						return "You're not ready for that level of clearance. Build my trust first."
+				"NEUTRAL":
+					return "Security codes aren't given out lightly. Prove you're reliable first."
+				"INCOMPATIBLE", "VERY_INCOMPATIBLE":
+					return "I don't share classified information with people I can't rely on."
+				_:
+					return "Security access is restricted information."
+		
+		"patrol_schedules":
+			match compatibility_result:
+				"VERY_COMPATIBLE", "COMPATIBLE":
+					if trust_level >= 1.0:
+						return "Guards rotate every 4 hours. Alpha shift starts at 0600, Bravo at 1000. Use this wisely."
+					else:
+						return "I need to see you're trustworthy before sharing operational details."
+				"NEUTRAL":
+					return "That's operational information. I'll consider sharing it if you prove yourself."
+				"INCOMPATIBLE", "VERY_INCOMPATIBLE":
+					return "Security protocols are none of your business."
+				_:
+					return "Patrol information is classified."
+		
+		"facility_layout":
+			match compatibility_result:
+				"VERY_COMPATIBLE", "COMPATIBLE":
+					return "The facility has 5 levels. Research is on 3, command on 4, secure storage below. Simple enough."
+				"NEUTRAL":
+					return "Basic layout: Admin on 1, operations on 2, research above. That's all you need to know."
+				"INCOMPATIBLE", "VERY_INCOMPATIBLE":
+					return "Find your own way around. I'm not a tour guide."
+				_:
+					return "Basic facility information is available through proper channels."
+		
+		"weapon_cache":
+			match compatibility_result:
+				"VERY_COMPATIBLE", "COMPATIBLE":
+					if trust_level >= 2.5:
+						return "Emergency armory is in sub-basement level B3, behind the maintenance access. Keep this between us."
+					else:
+						return "Weapon cache locations are for senior personnel only. You're not there yet."
+				"NEUTRAL":
+					return "Emergency weapons are classified above your clearance level."
+				"INCOMPATIBLE", "VERY_INCOMPATIBLE":
+					return "I'm not telling you where the weapons are stored."
+				_:
+					return "Weapons storage is highly restricted information."
+		
+		"personnel_files":
+			match compatibility_result:
+				"VERY_COMPATIBLE", "COMPATIBLE":
+					if trust_level >= 1.5:
+						return "I can share some background information on key personnel. What do you need to know?"
+					else:
+						return "Personnel files are confidential. Build more trust with me first."
+				"NEUTRAL":
+					return "Staff information is available through proper HR channels."
+				"INCOMPATIBLE", "VERY_INCOMPATIBLE":
+					return "Personnel records are none of your concern."
+				_:
+					return "Personnel information requires proper authorization."
+		
+		_:
+			# Default Captain Stone personality reactions
+			return get_default_captain_stone_reaction(social_choice, compatibility_result, trust_level)
+
+static func get_dr_wisdom_information_reaction(social_choice: SocialDNAManager.SocialType,
+											  compatibility_result: String,
+											  trust_level: float,
+											  info_context: Dictionary) -> String:
+	
+	var information_request = info_context.get("information_request", "")
+	
+	match information_request:
+		"classified_projects":
+			match compatibility_result:
+				"VERY_COMPATIBLE", "COMPATIBLE":
+					if trust_level >= 2.0:
+						return "Project Blackbird involves quantum field manipulation. The implications are... significant. I trust you understand the discretion required."
+					else:
+						return "Such information requires a deeper level of trust between us. Perhaps in time."
+				"NEUTRAL":
+					return "I appreciate your interest, but classified research must remain classified for now."
+				"INCOMPATIBLE", "VERY_INCOMPATIBLE":
+					return "I'm afraid such sensitive information is not appropriate to discuss."
+				_:
+					return "Classified research requires appropriate clearance."
+		
+		"lab_access":
+			match compatibility_result:
+				"VERY_COMPATIBLE", "COMPATIBLE":
+					if trust_level >= 1.0:
+						return "The lab code is Beta-44-Gamma. Please respect the delicate equipment within."
+					else:
+						return "Laboratory access requires a certain level of mutual trust and respect."
+				"NEUTRAL":
+					return "I'll need to verify your clearance before providing access codes."
+				"INCOMPATIBLE", "VERY_INCOMPATIBLE":
+					return "I cannot grant access to unauthorized personnel."
+				_:
+					return "Laboratory access is restricted."
+		
+		"research_summary":
+			match compatibility_result:
+				"VERY_COMPATIBLE", "COMPATIBLE":
+					return "Our current research focuses on advanced materials and energy applications. Quite fascinating work."
+				"NEUTRAL":
+					return "We're conducting various research projects within standard academic protocols."
+				"INCOMPATIBLE", "VERY_INCOMPATIBLE":
+					return "I don't believe you'd understand the complexities of our research."
+				_:
+					return "Research information is available through proper channels."
+		
+		"prototype_location":
+			match compatibility_result:
+				"VERY_COMPATIBLE", "COMPATIBLE":
+					if trust_level >= 2.5:
+						return "The prototype vault is located in sublevel A2. Exercise extreme caution with the experimental technology."
+					else:
+						return "Prototype locations are highly classified. I need absolute trust before sharing such sensitive information."
+				"NEUTRAL":
+					return "Prototype storage information is above your current clearance level."
+				"INCOMPATIBLE", "VERY_INCOMPATIBLE":
+					return "I cannot discuss prototype locations with unauthorized individuals."
+				_:
+					return "Prototype information is highly restricted."
+		
+		_:
+			return get_default_dr_wisdom_reaction(social_choice, compatibility_result, trust_level)
+
+# =============================================================================
+# UTILITY FUNCTIONS FOR QUICK CHAT
+# =============================================================================
+
+static func get_quick_chat_followup_options(npc_name: String, trust_level: float) -> Array:
+	match npc_name:
+		"Captain Stone":
+			return [
+				{
+					"social_type": SocialDNAManager.SocialType.DIRECT,
+					"text": "I'd like to discuss security matters with you sometime.",
+					"information_hint": "Sets up future information requests"
+				},
+				{
+					"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
+					"text": "I'll be back when I need real information.",
+					"information_hint": "Assertive but potentially risky"
+				},
+				{
+					"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+					"text": "Thank you for your time. I hope we can work together.",
+					"information_hint": "Safe relationship building"
+				}
+			]
+		"Dr. Wisdom":
+			return [
+				{
+					"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+					"text": "I'd value the opportunity to learn more about your research.",
+					"information_hint": "Respectful interest in their expertise"
+				},
+				{
+					"social_type": SocialDNAManager.SocialType.EMPATHETIC,
+					"text": "Your work must be very rewarding despite the challenges.",
+					"information_hint": "Shows understanding of their dedication"
+				},
+				{
+					"social_type": SocialDNAManager.SocialType.DIRECT,
+					"text": "I may need to consult with you on technical matters.",
+					"information_hint": "Direct statement of future needs"
+				}
+			]
+		_:
+			return [
+				{
+					"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+					"text": "Thank you for the conversation.",
+					"information_hint": "Polite conclusion"
+				}
+			]
+
+# =============================================================================
+# DEFAULT REACTIONS (FALLBACK)
+# =============================================================================
+
+static func get_default_captain_stone_reaction(social_choice: SocialDNAManager.SocialType,
+											  compatibility_result: String,
+											  trust_level: float) -> String:
+	match compatibility_result:
+		"VERY_COMPATIBLE":
+			return "Now that's the kind of direct thinking I respect. You understand how things work."
+		"COMPATIBLE":
+			return "I can work with someone who gets straight to the point."
+		"NEUTRAL":
+			return "I suppose that's a reasonable approach."
+		"INCOMPATIBLE":
+			return "That's not how we handle things around here."
+		"VERY_INCOMPATIBLE":
+			return "I don't have time for that kind of nonsense."
+		_:
+			return "Understood."
+
+static func get_default_dr_wisdom_reaction(social_choice: SocialDNAManager.SocialType,
+										  compatibility_result: String,
+										  trust_level: float) -> String:
+	match compatibility_result:
+		"VERY_COMPATIBLE":
+			return "A most thoughtful and nuanced perspective. I appreciate intellectual discourse."
+		"COMPATIBLE":
+			return "Your approach shows consideration and wisdom."
+		"NEUTRAL":
+			return "An interesting point of view, certainly."
+		"INCOMPATIBLE":
+			return "Perhaps a more thoughtful approach would be beneficial."
+		"VERY_INCOMPATIBLE":
+			return "I'm afraid such crude thinking is beneath productive discourse."
+		_:
+			return "Indeed."
+
+# Keep the original function as fallback
+static func get_original_trust_aware_reaction_text(archetype: SocialDNAManager.NPCArchetype,
+												  social_choice: SocialDNAManager.SocialType,
+												  compatibility_result: String,
+												  trust_level: float,
+												  turn: int) -> String:
+	# [Original implementation - keeping for compatibility]
+	match compatibility_result:
+		"VERY_COMPATIBLE": return "Excellent approach!"
+		"COMPATIBLE": return "I can work with that."
+		"NEUTRAL": return "Interesting perspective."
+		"INCOMPATIBLE": return "Not quite what I was expecting."
+		"VERY_INCOMPATIBLE": return "That approach doesn't work with me."
+		_: return "I see."
+
+# =============================================================================
+# GENERIC CONVERSATION HELPERS (for other NPCs)
+# =============================================================================
+
+static func get_generic_topic_turns(trust_level: float) -> Dictionary:
+	return {
+		"turn": 0,
+		"context": "Generic information request",
+		"player_options": [
+			{
+				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+				"text": "I was hoping you could help me with something.",
+				"information_request": "general_help",
+				"success_chance": 0.7,
+				"risk_level": "low"
+			}
+		]
+	}
+
+static func get_generic_deep_turns(trust_level: float) -> Array:
+	return [
+		{
+			"turn": 0,
+			"context": "Generic deep conversation",
+			"player_options": [
+				{
+					"social_type": SocialDNAManager.SocialType.EMPATHETIC,
+					"text": "I trust you, and I hope you trust me too.",
+					"information_request": "trust_confirmation",
+					"success_chance": 0.8,
+					"risk_level": "low"
+				}
+			]
+		}
+	]
+
+# =============================================================================
+# MISSING IMPLEMENTATION FUNCTIONS
 # =============================================================================
 
 static func get_trust_aware_opening_lines(archetype: SocialDNAManager.NPCArchetype, 
 										 trust_level: float,
-										 compatibility: float) -> Array:
+										 compatibility: float,
+										 npc_name: String = "") -> Array:
 	
 	var lines = []
 	
@@ -182,475 +993,250 @@ static func get_generic_trust_lines(trust_level: float, compatibility: float) ->
 		"min_compatibility": -999, "max_compatibility": 999, "min_trust_level": -999
 	}]
 
-# =============================================================================
-# TRUST-AWARE NPC REACTIONS
-# =============================================================================
-
-static func get_trust_aware_reaction_text(archetype: SocialDNAManager.NPCArchetype,
-										 social_choice: SocialDNAManager.SocialType,
-										 compatibility_result: String,
-										 trust_level: float,
-										 turn: int) -> String:
+static func get_dr_wisdom_topic_turns(trust_level: float, primary_target: Dictionary) -> Dictionary:
+	var turn = {
+		"turn": 0,
+		"context": "Requesting information from Research Director",
+		"primary_target": primary_target,
+		"player_options": []
+	}
 	
-	# Get trust-modified reactions
-	match archetype:
-		SocialDNAManager.NPCArchetype.AUTHORITY:
-			return get_authority_trust_reaction(social_choice, compatibility_result, trust_level, turn)
-		SocialDNAManager.NPCArchetype.INTELLECTUAL:
-			return get_intellectual_trust_reaction(social_choice, compatibility_result, trust_level, turn)
+	if primary_target.has("classified_projects"):
+		turn.player_options = [
+			{
+				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+				"text": "I'd like to discuss your classified research projects.",
+				"information_request": "classified_projects",
+				"success_chance": 0.8,
+				"risk_level": "medium"
+			},
+			{
+				"social_type": SocialDNAManager.SocialType.EMPATHETIC,
+				"text": "I understand the sensitivity, but I need to know about your secret projects.",
+				"information_request": "classified_projects",
+				"success_chance": 0.7,
+				"risk_level": "low"
+			},
+			{
+				"social_type": SocialDNAManager.SocialType.DIRECT,
+				"text": "What classified research are you working on?",
+				"information_request": "classified_projects",
+				"success_chance": 0.6,
+				"risk_level": "medium"
+			}
+		]
+	elif primary_target.has("lab_access"):
+		turn.player_options = [
+			{
+				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+				"text": "I need access to your laboratory for research purposes.",
+				"information_request": "lab_access",
+				"success_chance": 0.8,
+				"risk_level": "low"
+			},
+			{
+				"social_type": SocialDNAManager.SocialType.DIRECT,
+				"text": "Can you provide me with the lab access codes?",
+				"information_request": "lab_access",
+				"success_chance": 0.7,
+				"risk_level": "medium"
+			}
+		]
+	else:
+		# Fallback for basic information
+		turn.player_options = [
+			{
+				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+				"text": "Could you tell me about your current research?",
+				"information_request": "research_summary",
+				"success_chance": 0.9,
+				"risk_level": "low"
+			}
+		]
+	
+	return turn
+
+static func get_commander_steele_topic_turns(trust_level: float, primary_target: Dictionary) -> Dictionary:
+	var turn = {
+		"turn": 0,
+		"context": "Requesting information from Operations Chief",
+		"primary_target": primary_target,
+		"player_options": []
+	}
+	
+	if primary_target.has("supply_caches"):
+		turn.player_options = [
+			{
+				"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
+				"text": "I need the locations of your supply caches.",
+				"information_request": "supply_caches",
+				"success_chance": 0.7,
+				"risk_level": "high"
+			},
+			{
+				"social_type": SocialDNAManager.SocialType.DIRECT,
+				"text": "Can you share the supply depot coordinates?",
+				"information_request": "supply_caches",
+				"success_chance": 0.8,
+				"risk_level": "medium"
+			}
+		]
+	elif primary_target.has("comm_frequencies"):
+		turn.player_options = [
+			{
+				"social_type": SocialDNAManager.SocialType.DIRECT,
+				"text": "I need the encrypted communication frequencies.",
+				"information_request": "comm_frequencies",
+				"success_chance": 0.7,
+				"risk_level": "medium"
+			}
+		]
+	else:
+		# Fallback for basic information
+		turn.player_options = [
+			{
+				"social_type": SocialDNAManager.SocialType.DIRECT,
+				"text": "Can you brief me on current operations?",
+				"information_request": "mission_brief",
+				"success_chance": 0.8,
+				"risk_level": "low"
+			}
+		]
+	
+	return turn
+
+static func get_dr_wisdom_deep_turns(trust_level: float, high_value_targets: Array) -> Array:
+	var turns = []
+	
+	# Turn 0: High-stakes research information request
+	turns.append({
+		"turn": 0,
+		"context": "High-value research information from trusted colleague",
+		"player_options": [
+			{
+				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+				"text": "I need access to your most sensitive research data.",
+				"information_request": "prototype_location",
+				"success_chance": 0.8,
+				"risk_level": "medium"
+			},
+			{
+				"social_type": SocialDNAManager.SocialType.EMPATHETIC,
+				"text": "I understand this is sensitive, but lives may depend on this information.",
+				"information_request": "prototype_location",
+				"success_chance": 0.7,
+				"risk_level": "low"
+			}
+		]
+	})
+	
+	# Turn 1: Follow-through
+	turns.append({
+		"turn": 1,
+		"context": "Reinforcing the research request",
+		"player_options": [
+			{
+				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
+				"text": "I give you my word this information will be used responsibly.",
+				"information_request": "confirmation",
+				"success_chance": 0.9,
+				"risk_level": "low"
+			}
+		]
+	})
+	
+	return turns
+
+static func get_commander_steele_deep_turns(trust_level: float, high_value_targets: Array) -> Array:
+	var turns = []
+	
+	# Turn 0: High-stakes operational information request
+	turns.append({
+		"turn": 0,
+		"context": "High-value operational information from trusted ally",
+		"player_options": [
+			{
+				"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
+				"text": "I need complete operational intelligence. No holding back.",
+				"information_request": "supply_caches",
+				"success_chance": 0.7,
+				"risk_level": "high"
+			},
+			{
+				"social_type": SocialDNAManager.SocialType.DIRECT,
+				"text": "The mission requires full operational data. Can you provide it?",
+				"information_request": "supply_caches",
+				"success_chance": 0.8,
+				"risk_level": "medium"
+			}
+		]
+	})
+	
+	return turns
+
+static func get_commander_steele_information_reaction(social_choice: SocialDNAManager.SocialType,
+												   compatibility_result: String,
+												   trust_level: float,
+												   info_context: Dictionary) -> String:
+	
+	var information_request = info_context.get("information_request", "")
+	
+	match information_request:
+		"supply_caches":
+			match compatibility_result:
+				"VERY_COMPATIBLE", "COMPATIBLE":
+					if trust_level >= 2.0:
+						return "Grid coordinates 47.2N, 122.3W. Supply depot Alpha has enough for two weeks. Keep this information secure."
+					else:
+						return "You're not cleared for supply logistics yet. Prove your operational worth first."
+				"NEUTRAL":
+					return "Supply information is classified. I'll consider sharing it if you demonstrate tactical competence."
+				"INCOMPATIBLE", "VERY_INCOMPATIBLE":
+					return "Supply locations are on a need-to-know basis. You don't need to know."
+				_:
+					return "Supply logistics are restricted information."
+		
+		"comm_frequencies":
+			match compatibility_result:
+				"VERY_COMPATIBLE", "COMPATIBLE":
+					if trust_level >= 1.5:
+						return "Frequency 2847.5 MHz, encryption key Delta-Nine. Monitor channel 3 for updates."
+					else:
+						return "Communication protocols require higher clearance. Build operational trust first."
+				"NEUTRAL":
+					return "Encrypted communications are sensitive. I need assurance of your operational security."
+				"INCOMPATIBLE", "VERY_INCOMPATIBLE":
+					return "Communication frequencies are classified military intelligence."
+				_:
+					return "Communication protocols are classified."
+		
+		"mission_brief":
+			match compatibility_result:
+				"VERY_COMPATIBLE", "COMPATIBLE":
+					return "Operation Steel Rain is a three-phase tactical deployment. Current status is Phase 2 preparation."
+				"NEUTRAL":
+					return "Mission briefings are available to cleared personnel on an operational need-to-know basis."
+				"INCOMPATIBLE", "VERY_INCOMPATIBLE":
+					return "Mission details are classified above your clearance level."
+				_:
+					return "Mission information is restricted."
+		
 		_:
-			return get_generic_reaction(compatibility_result)
+			return get_default_commander_steele_reaction(social_choice, compatibility_result, trust_level)
 
-static func get_authority_trust_reaction(social_choice: SocialDNAManager.SocialType,
-										compatibility_result: String,
-										trust_level: float,
-										turn: int) -> String:
-	
-	# Trust level modifies how reactions are delivered
-	var trust_modifier = ""
-	if trust_level >= 2.0:
-		trust_modifier = "trusted_"
-	elif trust_level >= 1.0:
-		trust_modifier = "professional_"
-	elif trust_level < 0.0:
-		trust_modifier = "hostile_"
-	
-	var reactions = {
-		# VERY COMPATIBLE reactions with trust variants
-		"VERY_COMPATIBLE": {
-			SocialDNAManager.SocialType.AGGRESSIVE: {
-				"": ["Exactly the kind of fire we need around here!", "That's the attitude that gets results!", "Now you're speaking my language!"],
-				"professional_": ["I knew I could count on your intensity when it matters.", "Your aggressive approach is exactly what this situation needs.", "That's why I trust your judgment in difficult situations."],
-				"trusted_": ["Perfect. Your killer instinct is why you're my right hand.", "That's the aggressive leadership I've come to rely on.", "Exactly what I expected from my most trusted operative."],
-				"hostile_": ["Your aggression doesn't impress me anymore.", "I've seen this act before. It got old.", "Save the posturing for someone who still cares."]
-			},
-			SocialDNAManager.SocialType.DIRECT: {
-				"": ["Straight to the point. I respect that.", "No wasted words. Excellent.", "Finally, someone who understands efficiency."],
-				"professional_": ["Your directness is exactly why I work well with you.", "I appreciate that you don't waste my time with nonsense.", "That's the efficiency I've come to expect from you."],
-				"trusted_": ["Perfect. No one cuts through confusion like you do.", "Your directness is one of your greatest strengths.", "That's exactly why I trust you with the important matters."],
-				"hostile_": ["Your bluntness has lost its charm.", "Direct, but I don't care what you think anymore.", "Being direct doesn't make you right."]
-			}
-		},
-		
-		# COMPATIBLE reactions with trust variants  
-		"COMPATIBLE": {
-			SocialDNAManager.SocialType.AGGRESSIVE: {
-				"": ["I can work with that approach.", "Good intensity, but pace yourself.", "That's the right energy, just controlled."],
-				"professional_": ["Your controlled aggression shows you're learning.", "Good balance of force and restraint.", "That's the kind of measured intensity that gets results."],
-				"trusted_": ["I trust your judgment on when to push hard.", "Your aggressive instincts are well-honed now.", "You know when to apply pressure. Good."],
-				"hostile_": ["Your aggression is predictable and tiresome.", "I expected more subtlety by now.", "Same old aggressive response. How boring."]
-			},
-			SocialDNAManager.SocialType.DIRECT: {
-				"": ["Clear and concise. Good.", "I appreciate the directness.", "That's how business should be done."],
-				"professional_": ["Your direct communication style works well for us.", "I appreciate that you get straight to the point.", "That directness is becoming one of your strengths."],
-				"trusted_": ["Your honesty is one of the things I value most about you.", "I can always count on you to tell me the truth.", "That directness has served us both well."],
-				"hostile_": ["Your directness feels more like rudeness now.", "Being direct doesn't excuse being inconsiderate.", "I preferred when your directness came with respect."]
-			}
-		},
-		
-		# NEUTRAL reactions
-		"NEUTRAL": {
-			SocialDNAManager.SocialType.DIPLOMATIC: {
-				"": ["A reasonable approach, I suppose.", "That's... measured.", "I can see the merit in that."],
-				"professional_": ["Your diplomatic approach has its place.", "I can respect that perspective.", "That's a reasonable way to handle it."],
-				"trusted_": ["Your diplomatic instincts are usually sound.", "I trust your judgment on the best approach.", "You typically know how to handle these situations."],
-				"hostile_": ["Your diplomacy feels hollow now.", "I don't buy the reasonable act anymore.", "Diplomatic words can't fix what's broken between us."]
-			}
-		},
-		
-		# INCOMPATIBLE reactions
-		"INCOMPATIBLE": {
-			SocialDNAManager.SocialType.EMPATHETIC: {
-				"": ["We're not running a support group here.", "Feelings don't solve problems.", "That's a luxury we can't afford."],
-				"professional_": ["Your empathy, while admirable, isn't practical here.", "I understand your concern, but we need solutions.", "Compassion has its place, but not in this situation."],
-				"trusted_": ["I know you care, but sometimes hard choices must be made.", "Your empathy is valued, but we need to be realistic.", "I respect your compassion, even when it complicates things."],
-				"hostile_": ["Your fake empathy doesn't work on me anymore.", "Save the caring act for someone who believes it.", "Your empathy feels manipulative now."]
-			},
-			SocialDNAManager.SocialType.CHARMING: {
-				"": ["This isn't a social club.", "Save the charm for someone else.", "I prefer substance over style."],
-				"professional_": ["Your charm is noted, but let's focus on business.", "I appreciate the effort, but results matter more.", "Charm has its place, but not in serious matters."],
-				"trusted_": ["You don't need to charm me - I already trust you.", "Your charm is unnecessary; I value your competence.", "I know who you really are beyond the charm."],
-				"hostile_": ["Your charm is wasted on someone who sees through it.", "I remember when your charm was genuine.", "That smooth talk doesn't work on me anymore."]
-			}
-		},
-		
-		# VERY INCOMPATIBLE reactions  
-		"VERY_INCOMPATIBLE": {
-			SocialDNAManager.SocialType.CHARMING: {
-				"": ["Your smooth talk doesn't impress me.", "I've heard enough empty flattery for one lifetime.", "Actions, not words, prove worth."],
-				"professional_": ["Your charm feels inappropriate for the situation.", "I expected more professionalism from you.", "This isn't the time for charm; we need action."],
-				"trusted_": ["I'm disappointed. I thought you understood me better.", "Your charm feels forced. What's really going on?", "I trusted you to be genuine with me."],
-				"hostile_": ["Your disgusting charm makes my skin crawl.", "I can't stand your fake smile anymore.", "Your charm is the epitome of everything I despise about you."]
-			},
-			SocialDNAManager.SocialType.EMPATHETIC: {
-				"": ["Weakness disguised as compassion.", "Sentiment has no place in serious matters.", "Your bleeding heart will get people killed."],
-				"professional_": ["Your empathy is misplaced in this situation.", "I need clear thinking, not emotional responses.", "Compassion is admirable, but practicality is essential."],
-				"trusted_": ["I understand your compassion, but sometimes we must make hard choices.", "Your empathy is one of your strengths, even when it conflicts with necessity.", "I know this is difficult for you, but we need to be practical."],
-				"hostile_": ["Your fake empathy is nauseating.", "I'm sick of your bleeding-heart routine.", "Your empathy is just emotional manipulation."]
-			}
-		}
-	}
-	
-	return get_random_trust_reaction(reactions, social_choice, compatibility_result, trust_modifier)
-
-static func get_intellectual_trust_reaction(social_choice: SocialDNAManager.SocialType,
-										   compatibility_result: String,
-										   trust_level: float,
-										   turn: int) -> String:
-	
-	var trust_modifier = ""
-	if trust_level >= 2.0:
-		trust_modifier = "trusted_"
-	elif trust_level >= 1.0:
-		trust_modifier = "professional_"
-	elif trust_level < 0.0:
-		trust_modifier = "hostile_"
-	
-	var reactions = {
-		"VERY_COMPATIBLE": {
-			SocialDNAManager.SocialType.DIPLOMATIC: {
-				"": ["A wonderfully nuanced perspective!", "Such thoughtful consideration of all angles!", "You demonstrate remarkable intellectual sophistication!"],
-				"professional_": ["Your diplomatic approach shows intellectual maturity.", "I appreciate your thoughtful analysis of the situation.", "Your nuanced thinking is exactly what this requires."],
-				"trusted_": ["Your diplomatic wisdom continues to impress me.", "This is why I value our intellectual partnership.", "Your sophisticated approach is precisely what I hoped for."],
-				"hostile_": ["Your diplomacy feels calculated and cold now.", "I don't trust your diplomatic manipulations anymore.", "Your nuanced approach seems designed to deceive."]
-			},
-			SocialDNAManager.SocialType.EMPATHETIC: {
-				"": ["Your empathy shows true wisdom.", "Understanding others is the key to understanding truth.", "Emotional intelligence is still intelligence."],
-				"professional_": ["Your empathetic insight adds valuable perspective.", "I appreciate your consideration of all stakeholders.", "Your emotional intelligence enhances our analysis."],
-				"trusted_": ["Your empathy is one of your greatest intellectual gifts.", "This is why I trust your judgment on complex matters.", "Your compassionate wisdom guides us well."],
-				"hostile_": ["Your empathy feels like intellectual weakness now.", "I don't believe in your caring act anymore.", "Your empathy has become a tool for manipulation."]
-			}
-		},
-		
-		"COMPATIBLE": {
-			SocialDNAManager.SocialType.DIPLOMATIC: {
-				"": ["A well-reasoned approach.", "I appreciate the thoughtfulness.", "That shows good judgment."],
-				"professional_": ["Your diplomatic reasoning is sound.", "I can see the logic in your approach.", "That's a thoughtful way to handle this."],
-				"trusted_": ["Your diplomatic instincts are well-developed.", "I trust your reasoned approach to these matters.", "Your thoughtfulness serves us both well."],
-				"hostile_": ["Your diplomacy feels hollow and manipulative.", "I don't buy your reasonable facade anymore.", "Your diplomatic words can't hide your true nature."]
-			},
-			SocialDNAManager.SocialType.DIRECT: {
-				"": ["Simple, but effective.", "Sometimes clarity is its own wisdom.", "Direct, but not crude. Good."],
-				"professional_": ["Your direct approach has merit in this context.", "I appreciate the clarity of your position.", "That directness serves the discussion well."],
-				"trusted_": ["Your directness cuts through unnecessary complexity.", "I value your honest, straightforward perspective.", "Your clear thinking is exactly what we need."],
-				"hostile_": ["Your directness has become blunt and thoughtless.", "Being direct doesn't excuse being intellectually lazy.", "Your bluntness lacks the nuance I once respected."]
-			}
-		},
-		
-		"NEUTRAL": {
-			SocialDNAManager.SocialType.CHARMING: {
-				"": ["Charming, in its way.", "I suppose that has its place.", "An... interesting choice."],
-				"professional_": ["Your charm is noted, though substance matters more.", "I understand the social utility of your approach.", "Charm has its place in intellectual discourse."],
-				"trusted_": ["Your charm doesn't change our intellectual connection.", "I see beyond the charm to the real person.", "You don't need to charm me - I already value your mind."],
-				"hostile_": ["Your charm feels intellectually dishonest now.", "I find your charming facade tedious.", "Your charm is just surface-level manipulation."]
-			}
-		},
-		
-		"INCOMPATIBLE": {
-			SocialDNAManager.SocialType.AGGRESSIVE: {
-				"": ["Such... intensity. Perhaps misplaced?", "Aggression rarely leads to enlightenment.", "Brute force is the tool of limited minds."],
-				"professional_": ["Your aggressive approach lacks intellectual subtlety.", "I prefer reasoned discourse to forceful assertions.", "Intensity has its place, but not in thoughtful analysis."],
-				"trusted_": ["I know you're passionate, but let's channel that productively.", "Your intensity shows you care, even if the approach is flawed.", "I understand your frustration, but aggression clouds judgment."],
-				"hostile_": ["Your brutish aggression disgusts me intellectually.", "Your aggressive stupidity is exactly what I expected.", "Your crude approach confirms my worst assumptions about you."]
-			}
-		},
-		
-		"VERY_INCOMPATIBLE": {
-			SocialDNAManager.SocialType.AGGRESSIVE: {
-				"": ["Your crude approach appalls me.", "Violence is the last refuge of the incompetent.", "Such barbarism has no place in civilized discourse."],
-				"professional_": ["Your aggressive stance undermines any intellectual merit.", "I cannot engage productively with such forceful approaches.", "Aggression and intellectual discourse are fundamentally incompatible."],
-				"trusted_": ["I'm deeply disappointed in this aggressive turn.", "This isn't the thoughtful person I thought I knew.", "Your aggression betrays the intellectual bond I thought we had."],
-				"hostile_": ["Your vile aggression confirms you're intellectually bankrupt.", "Your barbaric approach is the epitome of everything wrong with your thinking.", "Your crude aggression makes me sick to my intellectual core."]
-			}
-		}
-	}
-	
-	return get_random_trust_reaction(reactions, social_choice, compatibility_result, trust_modifier)
-
-static func get_random_trust_reaction(reactions: Dictionary, 
-									 social_choice: SocialDNAManager.SocialType,
-									 compatibility_result: String,
-									 trust_modifier: String) -> String:
-	
-	if reactions.has(compatibility_result) and reactions[compatibility_result].has(social_choice):
-		var choice_reactions = reactions[compatibility_result][social_choice]
-		
-		# Try trust-modified version first
-		if choice_reactions.has(trust_modifier):
-			var options = choice_reactions[trust_modifier]
-			return options[randi() % options.size()]
-		
-		# Fall back to default
-		if choice_reactions.has(""):
-			var options = choice_reactions[""]
-			return options[randi() % options.size()]
-	
-	return get_generic_reaction(compatibility_result)
-
-static func get_generic_reaction(compatibility_result: String) -> String:
+static func get_default_commander_steele_reaction(social_choice: SocialDNAManager.SocialType,
+												compatibility_result: String,
+												trust_level: float) -> String:
 	match compatibility_result:
-		"VERY_COMPATIBLE": return "Excellent point!"
-		"COMPATIBLE": return "I can work with that."
-		"NEUTRAL": return "Hmm, interesting."
-		"INCOMPATIBLE": return "I'm not sure about that approach."
-		"VERY_INCOMPATIBLE": return "That's completely wrong."
-		_: return "I see."
-
-# =============================================================================
-# ENHANCED CONVERSATION STRUCTURES (Same as before, but with trust context)
-# =============================================================================
-
-static func get_quick_chat_conversation(archetype: SocialDNAManager.NPCArchetype, 
-										trust_level: float, 
-										compatibility: float) -> Dictionary:
-	
-	var conversation = {
-		"type": ConversationController.ConversationType.QUICK_CHAT,
-		"turns": []
-	}
-	
-	# Turn 0: Initial player response (same options, but reactions will be trust-aware)
-	conversation.turns.append({
-		"turn": 0,
-		"player_options": [
-			{
-				"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
-				"text": "Let's cut to the chase."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIPLOMATIC, 
-				"text": "I'd appreciate your perspective on something."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.CHARMING,
-				"text": "You seem like someone worth knowing."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIRECT,
-				"text": "What's on your mind?"
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.EMPATHETIC,
-				"text": "How are you doing today?"
-			}
-		]
-	})
-	
-	# Turn 1: Follow-up responses (trust-aware reactions will make these feel different)
-	conversation.turns.append({
-		"turn": 1,
-		"player_options": [
-			{
-				"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
-				"text": "I'll remember this conversation."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
-				"text": "Thank you for your time."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.CHARMING,
-				"text": "This has been delightful."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIRECT,
-				"text": "Good to know."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.EMPATHETIC,
-				"text": "I hope things go well for you."
-			}
-		]
-	})
-	
-	return conversation
-
-static func get_topic_conversation(archetype: SocialDNAManager.NPCArchetype,
-								  trust_level: float,
-								  compatibility: float) -> Dictionary:
-	
-	var conversation = {
-		"type": ConversationController.ConversationType.TOPIC_DISCUSSION,
-		"turns": []
-	}
-	
-	# Turn 0: Initial engagement
-	conversation.turns.append({
-		"turn": 0,
-		"player_options": [
-			{
-				"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
-				"text": "I need information, and I need it now."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
-				"text": "I was hoping we could discuss something important."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.CHARMING,
-				"text": "I'm sure someone with your expertise could help me understand something."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIRECT,
-				"text": "I have some questions about what's happening around here."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.EMPATHETIC,
-				"text": "I'm concerned about some things I've been hearing. What's your take?"
-			}
-		]
-	})
-	
-	# Turn 1: Deeper engagement  
-	conversation.turns.append({
-		"turn": 1,
-		"player_options": [
-			{
-				"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
-				"text": "That's not good enough. I need specifics."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
-				"text": "I see your point. Could you elaborate on that?"
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.CHARMING,
-				"text": "Fascinating insight. You really understand the situation."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIRECT,
-				"text": "What would you do in my position?"
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.EMPATHETIC,
-				"text": "This must be difficult for everyone involved."
-			}
-		]
-	})
-	
-	# Turn 2: Resolution approach
-	conversation.turns.append({
-		"turn": 2,
-		"player_options": [
-			{
-				"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
-				"text": "I'll handle this my way then."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
-				"text": "Perhaps we can find a solution that works for everyone."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.CHARMING,
-				"text": "I knew I could count on your wisdom."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIRECT,
-				"text": "I understand what needs to be done."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.EMPATHETIC,
-				"text": "Let me know if there's anything I can do to help."
-			}
-		]
-	})
-	
-	return conversation
-
-static func get_deep_conversation(archetype: SocialDNAManager.NPCArchetype,
-								 trust_level: float, 
-								 compatibility: float) -> Dictionary:
-	
-	var conversation = {
-		"type": ConversationController.ConversationType.DEEP_CONVERSATION,
-		"turns": []
-	}
-	
-	# Deep conversations have more sophisticated options that change based on trust
-	# Turn 0: Opening gambit
-	conversation.turns.append({
-		"turn": 0,
-		"player_options": get_deep_conversation_opening_options(trust_level)
-	})
-	
-	# Additional turns for deep conversations
-	for turn in range(1, 5):
-		conversation.turns.append(get_deep_conversation_turn_options(turn, trust_level))
-	
-	return conversation
-
-static func get_deep_conversation_opening_options(trust_level: float) -> Array:
-	if trust_level >= 3.0:  # Close relationship
-		return [
-			{
-				"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
-				"text": "We've been through too much together to dance around this issue."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
-				"text": "Given our history, I think we can speak frankly about what's really happening."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.CHARMING,
-				"text": "You know I wouldn't come to you unless this was truly important."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIRECT,
-				"text": "I need your honest opinion about something that could affect us both."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.EMPATHETIC,
-				"text": "I'm worried about you, and I think there's more going on than you're letting on."
-			}
-		]
-	else:  # Trusted level
-		return [
-			{
-				"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
-				"text": "We need to address the elephant in the room."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
-				"text": "I've been thinking about our situation, and I believe we should talk."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.CHARMING,
-				"text": "I value your opinion more than most. Can we speak candidly?"
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIRECT,
-				"text": "I think it's time we had a serious conversation."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.EMPATHETIC,
-				"text": "I sense there's more going on here than meets the eye."
-			}
-		]
-
-static func get_deep_conversation_turn_options(turn_number: int, trust_level: float) -> Dictionary:
-	# Deep conversations have more meaningful, trust-aware options
-	return {
-		"turn": turn_number,
-		"player_options": [
-			{
-				"social_type": SocialDNAManager.SocialType.AGGRESSIVE,
-				"text": "This changes everything. We need to act decisively."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIPLOMATIC,
-				"text": "I think we can find a path forward that serves everyone's interests."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.CHARMING,
-				"text": "Your wisdom in these matters continues to impress me."
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.DIRECT,
-				"text": "What's our next move?"
-			},
-			{
-				"social_type": SocialDNAManager.SocialType.EMPATHETIC,
-				"text": "I want to make sure we consider how this affects everyone involved."
-			}
-		]
-	}
+		"VERY_COMPATIBLE":
+			return "Solid tactical thinking. You understand operational priorities."
+		"COMPATIBLE":
+			return "Acceptable approach for military operations."
+		"NEUTRAL":
+			return "Standard operational response."
+		"INCOMPATIBLE":
+			return "That approach lacks tactical discipline."
+		"VERY_INCOMPATIBLE":
+			return "Completely inappropriate for military operations."
+		_:
+			return "Acknowledged."
